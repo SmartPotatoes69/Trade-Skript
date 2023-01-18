@@ -1,0 +1,291 @@
+#You may use the skript but you should credit SmartPotatoes or/and link back to the original github repository
+#Requirements: Skript, SkBee
+#Version: 0.1
+
+options:
+	rclicktrade: true
+
+on right click:
+	wait 1 tick
+	{@rclicktrade} is true
+	player is sneaking
+	event-entity is a player
+	set {_p} to name of event-entity parsed as player
+	{_p} is set
+	{_p} is not player
+	execute player command "/trade %{_p}%"
+
+on quit:
+	{trading::invites::%player%::*} is set
+	clear {trading::invites::%player%::*}
+	delete {trading::invites::%player%::*}
+
+on tab complete of "/trade":
+	set tab completions for position 1 to "enable", "disable" and all players
+
+command /trade <text>:
+	usage: &cCorrect usage: /trade <player/enable/disable>
+	trigger:
+		if arg-1 is "disable":
+			if {trading::disabled::*} contains uuid of player:
+				send "<##14c9b4>&lTRADING&7・&7You already have trading disabled"
+				stop
+			clear {trading::invites::%player%::*}
+			add uuid of player to {trading::disabled::*}
+			send "<##14c9b4>&lTRADING&7・&7You have disabled trading"
+			stop
+		if arg-1 is "enable":
+			if {trading::disabled::*} doesn't contain uuid of player:
+				send "<##14c9b4>&lTRADING&7・&7You already have trading enabled"
+				stop
+			remove uuid of player from {trading::disabled::*}
+			send "<##14c9b4>&lTRADING&7・&7You have enabled trading"
+			stop
+		if {trading::disabled::*} contains uuid of player:
+			send "<##14c9b4>&lTRADING&7・&7You have trading disabled"
+			stop
+		set {_p2} to arg-1 parsed as player
+		if {_p2} is not a player:
+			send "&cCorrect usage: /trade <player>"
+			stop
+		if {_p2} is player:
+			send "<##14c9b4>&lTRADING&7・&7You can't trade with yourself"
+			stop
+		if {trading::disabled::*} contains uuid of {_p2}:
+			send "<##14c9b4>&lTRADING&7・&a%{_p2}% &7currently have trading disabled"
+			stop
+		if {trading::invites::%player%::*} contains {_p2}:
+			if {trading::intrade::%{_p2}'s uuid%} is set:
+				send "<##14c9b4>&lTRADING&7・&a%{_p2}% &7is currently trading with &a%{trading::intrade::%{_p2}'s uuid%}%"
+				remove {_p2} from {trading::invites::%player%::*}
+				delete {tradeinvitefix::%{_p2}%}
+				stop
+			remove {_p2} from {trading::invites::%player%::*}
+			delete {tradeinvitefix::%{_p2}%}
+			startTRADE({_p2}, player)
+			startTRADE(player, {_p2})
+			stop
+		if {trading::invites::%{_p2}%::*} contains player:
+			send "<##14c9b4>&lTRADING&7・&7You have already invited &a%{_p2}% &7to trade"
+			stop
+		send "<##14c9b4>&lTRADING&7・You invited &a%{_p2}% &7to trade."
+		add player to {trading::invites::%{_p2}%::*}
+		set {_i1} to text component from "<##14c9b4>&lTRADING&7・&a%player% &7invited you to trade. &4&o(30s)"
+		set {_i2} to text component from "&aACCEPT"
+		set hover event of {_i1} to hover event showing "&cExpiers in 30 seconds"
+		set hover event of {_i2} to hover event showing "&7Click to trade with &a%player%"
+		set click event of {_i2} to click event to run command "/trade %player%"
+		set {_i::*} to {_i1} and {_i2}
+		send components {_i::*} to {_p2}
+		set {_c} to a random number between 1 and 999
+		set {tradeinvitefix::%player%} to {_c}
+		wait 30 seconds
+		{_c} is {tradeinvitefix::%player%}
+		delete {tradeinvitefix::%player%}
+		{trading::invites::%{_p2}%::*} contains player
+		remove player from {trading::invites::%{_p2}%::*}
+		send "<##14c9b4>&lTRADING&7・Trade invite from &a%player% &7expired" to {_p2}
+
+on quit:
+	{trading::intrade::%player's uuid%} is set
+	set {_p2} to {trading::intrade::%player's uuid%}
+	endTRADE(player, {_p2}, false)
+
+function endTRADE(p1: player, p2: player, s: boolean):
+	loop 9,10,18,19,27,28,29,36,37,38,39,45,46,47,48:
+		if {_s} is true:
+			give slot loop-value of (metadata tag "TradingMenu" of {_p1}) to {_p2}
+			give slot loop-value of (metadata tag "TradingMenu" of {_p2}) to {_p1}
+		else if {_s} is false:
+			give slot loop-value of (metadata tag "TradingMenu" of {_p1}) to {_p1}
+			give slot loop-value of (metadata tag "TradingMenu" of {_p2}) to {_p2}
+	delete {trading::intrade::%{_p1}'s uuid%}
+	delete {trading::intrade::%{_p2}'s uuid%}
+	delete (metadata tag "TradingMenu" of {_p1})
+	delete (metadata tag "TradingMenu" of {_p2})
+	wait 1 tick
+	close {_p1}'s inventory
+	close {_p2}'s inventory
+	delete {trading::intrade::%{_p1}'s uuid%}
+	delete {trading::intrade::%{_p2}'s uuid%}
+
+function fixTradeItems(p: player):
+	set {_p2} to {trading::intrade::%{_p}'s uuid%}
+	set {_order} to "9,17|10,16|18,26|19,25|27,35|28,34|29,33|36,44|37,43|38,42|39,41|45,53|46,52|47,51|48,50"
+	set {_order::*} to {_order} split at "|"
+	loop {_order::*}:
+		set {_numbers::*} to loop-value split at ","
+		set {_slot} to {_numbers::1} parsed as number
+		set {_p2slot} to {_numbers::2} parsed as number
+		if slot {_slot} of (metadata tag "TradingMenu" of {_p}) is air:
+			set slot {_p2slot} of (metadata tag "TradingMenu" of {_p2}) to brown stained glass pane named " "
+		else:
+			set {_item} to slot {_slot} of (metadata tag "TradingMenu" of {_p})
+			set tag "TradeDisplayItem" of (nbt compound of {_item}) to true
+			set slot {_p2slot} of (metadata tag "TradingMenu" of {_p2}) to {_item}
+
+
+function startTRADE(p1: player, p2: player):
+	play sound "entity.arrow.hit_player" to {_p1}
+	set {trading::intrade::%{_p1}'s uuid%} to {_p2}
+	set (metadata tag "TradingMenu" of {_p1}) to chest inventory with 6 rows named "&7Trading with &a%{_p2}%"
+	set slot 9,10,18,19,27,28,29,36,37,38,39,45,46,47,48 of (metadata tag "TradingMenu" of {_p1}) to air
+	set slot 16,17,25,26,33,34,35,41,42,43,44,50,51,52,53 of (metadata tag "TradingMenu" of {_p1}) to brown stained glass pane named " "
+	set slot 0,1,2,3,5,6,7,8,11,15,20,21,23,24,30,31,32 of (metadata tag "TradingMenu" of {_p1}) to black stained glass pane named " "
+	set slot 4,40,49 of (metadata tag "TradingMenu" of {_p1}) to gray stained glass pane named " "
+	set slot 13 of (metadata tag "TradingMenu" of {_p1}) to white stained glass pane named "&fTrading"
+	set slot 22 of (metadata tag "TradingMenu" of {_p1}) to barrier named "&cClick to cancel"
+	set slot 12 of (metadata tag "TradingMenu" of {_p1}) to skull of ("%{_p1}%" parsed as offline player) named "&7Status: &cNot Ready"
+	set slot 14 of (metadata tag "TradingMenu" of {_p1}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+	open (metadata tag "TradingMenu" of {_p1}) to {_p1}
+	while {trading::intrade::%{_p1}'s uuid%} is set:
+		wait 1 tick
+		if {trading::intrade::%{_p1}'s uuid%} is not set:
+			stop
+		fixTradeItems({_p1})
+
+on inventory click:
+	{trading::intrade::%player's uuid%} is set
+	cancel event if event-item is brown stained glass pane
+	event-inventory is not player's inventory
+	cancel event if 0,1,2,3,5,6,7,8,11,15,20,21,23,24,30,31,32,14,4,40,49,13 contains event-slot
+	cancel event if 16,17,25,26,33,34,35,41,42,43,44,50,51,52,53 contains event-slot
+
+on inventory click:
+	event-inventory is (metadata tag "TradingMenu" of player)
+	if 16,17,25,26,33,34,35,41,42,43,44,50,51,52,53 contains event-slot:
+		play sound "entity.villager.no" to player
+		stop
+	9,10,18,19,27,28,29,36,37,38,39,45,46,47,48 contains event-slot
+	play sound "block.note_block.pling" to player
+	set {_p2} to {trading::intrade::%player's uuid%}
+	if name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &aReady":
+		set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+		set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p1}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%{_p1}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+	else if name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &aReady":
+		set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+		set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p1}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%{_p1}%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+
+on inventory close:
+	wait 1 tick
+	event-inventory is (metadata tag "TradingMenu" of player)
+	open (metadata tag "TradingMenu" of player) to player
+
+on inventory click:
+	event-inventory is (metadata tag "TradingMenu" of player)
+	event-inventory is not player's inventory
+	set {_p2} to {trading::intrade::%player's uuid%}
+	if event-slot is 22:
+		cancel event
+		send action bar "&7You have canceled the trade with &a%{_p2}%" to player
+		send action bar "&7You have canceled the trade with &a%player%" to {_p2}
+		play sound "entity.arrow.hit_player" to player
+		play sound "entity.arrow.hit_player" to {_p2}
+		endTRADE(player, {_p2}, false)
+		stop
+	event-slot is 12
+	cancel event
+	if name of event-slot is "&7Status: &cNot Ready":
+		set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &aReady"
+		set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &aReady"
+		set slot 13 of (metadata tag "TradingMenu" of player) to yellow stained glass pane named "&eWaiting" with lore "&7&oWaiting for %{_p2}% to confirm"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to yellow stained glass pane named "&eConfirm Trade" with lore "&7&o%player% is waiting for you to confirm"
+		name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &aReady"
+		name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &aReady"
+		set slot 13 of (metadata tag "TradingMenu" of player) to red stained glass pane named "&43 Seconds" with lore "&7&oTime left untill trade completed"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to red stained glass pane named "&43 Seconds" with lore "&7&oTime left untill trade completed"
+		if name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		if name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		play sound "block.note_block.pling" to {_p2}
+		play sound "block.note_block.pling" to player
+		wait 1 second
+		set slot 13 of (metadata tag "TradingMenu" of player) to orange stained glass pane named "&62 Seconds" with lore "&7&oTime left untill trade completed"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to orange stained glass pane named "&62 Seconds" with lore "&7&oTime left untill trade completed"
+		if name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		if name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		play sound "block.note_block.pling" to player
+		play sound "block.note_block.pling" to {_p2}
+		wait 1 second
+		if name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		if name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		set slot 13 of (metadata tag "TradingMenu" of player) to lime stained glass pane named "&a1 Second" with lore "&7&oTime left untill trade completed"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to lime stained glass pane named "&a1 Second" with lore "&7&oTime left untill trade completed"
+		play sound "block.note_block.pling" to player
+		play sound "block.note_block.pling" to {_p2}
+		wait 1 second
+		if name of slot 12 of (metadata tag "TradingMenu" of {_p2}) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		if name of slot 12 of (metadata tag "TradingMenu" of player) is "&7Status: &cNot Ready":
+			set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of player) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 12 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%{_p2}%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+			set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+			set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+			stop
+		send action bar "&7You have completed the trade with &a%{_p2}%" to player
+		send action bar "&7You have completed the trade with &a%player%" to {_p2}
+		play sound "entity.villager.yes" to player
+		play sound "entity.villager.yes" to {_p2}
+		endTRADE(player, {_p2}, true)
+	else if name of event-item is "&7Status: &aReady":
+		set slot 13 of (metadata tag "TradingMenu" of player) to white stained glass pane named "&fTrading"
+		set slot 13 of (metadata tag "TradingMenu" of {_p2}) to white stained glass pane named "&fTrading"
+		set slot 12 of (metadata tag "TradingMenu" of player) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
+		set slot 14 of (metadata tag "TradingMenu" of {_p2}) to skull of ("%player%" parsed as offline player) named "&7Status: &cNot Ready"
