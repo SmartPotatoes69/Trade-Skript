@@ -8,5 +8,5 @@ You may use the skript but you should credit @SmartPotatoes69 or/and link back t
 
 # **Infomation**
 Release date 2023-01-18                                                                                          
-Latest Update None                                                                                          
+Latest Update 2023-01-19 (0.2)                                                                                          
 Trade menu skript that makes so you can trade with players on the server!
